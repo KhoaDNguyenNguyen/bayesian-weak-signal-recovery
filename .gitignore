@@ -1,0 +1,45 @@
+# Byte-compiled and dynamically linked artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C / C++ build directories
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# CMake generation artifacts
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# Local environment variables
+.env
+.venv
+venv/
+
+# Ignore experimental data but preserve directory structures
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/synthetic/*
+!data/synthetic/.gitkeep
+
+bwsr-env/
