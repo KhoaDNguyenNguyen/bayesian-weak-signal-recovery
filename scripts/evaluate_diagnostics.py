@@ -85,6 +85,7 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def extract_posterior_statistics(results_path: Path) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    
     r"""
     Extract the Expected Value (Posterior Mean) and Standard Deviation 
     from the weighted samples of the serialized dynesty Results object.
