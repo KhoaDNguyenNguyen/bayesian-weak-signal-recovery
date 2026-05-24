@@ -90,7 +90,8 @@ def extract_posterior_statistics(
     # Correctly reference the internal dynesty log-likelihood key
     logl = results['logl']
     
-    unnormalized_weights = np.exp(results['weights'] - np.max(results['weights']))
+    # unnormalized_weights = np.exp(results['weights'] - np.max(results['weights']))
+    unnormalized_weights = np.exp(results['logwt'] - np.max(results['logwt']))
     weights = unnormalized_weights / np.sum(unnormalized_weights)
 
     map_index = np.argmax(logl)
@@ -112,7 +113,9 @@ def generate_crlb_diagnostic_plot(
     width = 0.35
 
     plt.rcParams.update({
+        "text.usetex": True,  
         "font.family": "serif",
+        "font.serif": ["Computer Modern Roman"],
         "axes.labelsize": 12,
         "font.size": 10,
         "legend.fontsize": 10,
