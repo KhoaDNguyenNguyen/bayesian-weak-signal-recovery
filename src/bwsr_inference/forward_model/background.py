@@ -1,12 +1,13 @@
 import numpy as np
 import numpy.typing as npt
 
-from ssr_inference.forward_model.signal import AbstractForwardModel
-from ssr_inference.core import _core_models
+# Corrected namespace
+from bwsr_inference.forward_model.signal import AbstractForwardModel
+from bwsr_inference.core import _core_models
 
 
 class ExponentialBackground(AbstractForwardModel):
-    """
+    r"""
     Parametric model for an exponentially decaying stochastic noise background.
 
     The model formulation follows:
@@ -14,7 +15,7 @@ class ExponentialBackground(AbstractForwardModel):
     """
 
     def __call__(self, frequencies: npt.NDArray[np.float64], theta: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """
+        r"""
         Evaluate the Exponential background model.
 
         Parameters
@@ -49,7 +50,7 @@ class ExponentialBackground(AbstractForwardModel):
 
 
 class PolynomialBackground(AbstractForwardModel):
-    """
+    r"""
     Parametric model for a polynomial continuous stochastic noise background.
 
     The model formulation follows:
@@ -61,7 +62,7 @@ class PolynomialBackground(AbstractForwardModel):
     """
 
     def __call__(self, frequencies: npt.NDArray[np.float64], theta: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """
+        r"""
         Evaluate the Polynomial background model.
 
         Parameters

@@ -2,19 +2,19 @@ import abc
 import numpy as np
 import numpy.typing as npt
 
-# Implicit relative import assuming compilation of C++ module to the core directory
-from ssr_inference.core import _core_models
+# Corrected namespace from ssr_inference to bwsr_inference
+from bwsr_inference.core import _core_models
 
 
 class AbstractForwardModel(abc.ABC):
-    """
+    r"""
     Abstract base class defining the operational interface for deterministic 
     forward models within the Bayesian inference pipeline.
     """
     
     @abc.abstractmethod
     def __call__(self, frequencies: npt.NDArray[np.float64], theta: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """
+        r"""
         Evaluate the parametric model over a set of independent variables.
 
         Parameters
@@ -34,7 +34,7 @@ class AbstractForwardModel(abc.ABC):
 
 
 class GaussianSignal(AbstractForwardModel):
-    """
+    r"""
     Parametric model for a Gaussian transient radio pulse.
 
     The model formulation follows:
@@ -42,7 +42,7 @@ class GaussianSignal(AbstractForwardModel):
     """
 
     def __call__(self, frequencies: npt.NDArray[np.float64], theta: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """
+        r"""
         Evaluate the Gaussian model.
 
         Parameters
@@ -79,7 +79,7 @@ class GaussianSignal(AbstractForwardModel):
 
 
 class VoigtSignal(AbstractForwardModel):
-    """
+    r"""
     Parametric model for a Voigt profile radio transient.
 
     Implemented using the computationally efficient pseudo-Voigt formulation 
@@ -88,7 +88,7 @@ class VoigtSignal(AbstractForwardModel):
     """
 
     def __call__(self, frequencies: npt.NDArray[np.float64], theta: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """
+        r"""
         Evaluate the pseudo-Voigt model.
 
         Parameters

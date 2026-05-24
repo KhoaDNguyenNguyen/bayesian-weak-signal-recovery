@@ -4,14 +4,14 @@ import sys
 import numpy as np
 from pathlib import Path
 
-# Explicit relative/absolute imports defining the pipeline architecture
-from ssr_inference.forward_model.signal import GaussianSignal
-from ssr_inference.sampling.likelihood import PriorTransform, DiagonalGaussianLikelihood
-from ssr_inference.sampling.nested_sampler import NestedInferenceEngine
+# Corrected namespace from ssr_inference to bwsr_inference
+from bwsr_inference.forward_model.signal import GaussianSignal
+from bwsr_inference.sampling.likelihood import PriorTransform, DiagonalGaussianLikelihood
+from bwsr_inference.sampling.nested_sampler import NestedInferenceEngine
 
 
 def parse_arguments() -> argparse.Namespace:
-    """
+    r"""
     Parse command-line arguments for High-Performance Computing batch execution.
 
     Returns
@@ -50,7 +50,7 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    """
+    r"""
     Main execution entry point for the Bayesian inference operation.
     """
     args = parse_arguments()
@@ -59,9 +59,7 @@ def main() -> None:
         sys.stderr.write(f"Error: Input data file {args.input} does not exist.\n")
         sys.exit(1)
 
-    # 1. Ingest Observational Data (D_i)
     try:
-        # Expected CSV structure: Frequency [Hz], Power Spectral Density, Variance
         data_matrix = np.genfromtxt(args.input, delimiter=',', skip_header=1)
         if data_matrix.shape[1] < 3:
             raise ValueError("Input data must contain at least 3 columns: Frequency, Power, Variance.")
@@ -73,18 +71,14 @@ def main() -> None:
         sys.stderr.write(f"Error during data ingestion: {e}\n")
         sys.exit(1)
 
-    # 2. Define Prior Boundaries and Scale Flags for a 3-parameter Gaussian Model
-    # Order: [Amplitude, Center Frequency, Standard Deviation]
     prior_bounds = np.array([
-        [1e-6, 1e-1],                    # Amplitude: Strictly positive
-        [np.min(frequencies), np.max(frequencies)],  # Center Frequency: Constrained by bandpass
-        [1e-3, 10.0]                     # Standard Deviation: Positive, constrained scale
+        [1e-6, 1e-1],
+        [np.min(frequencies), np.max(frequencies)],
+        [1e-3, 10.0]
     ])
     
-    # Apply log-uniform scaling for Amplitude and Standard Deviation
     log_scale_flags = np.array([True, False, True], dtype=bool)
 
-    # 3. Instantiate Pipeline Components
     try:
         prior_transform = PriorTransform(bounds=prior_bounds, log_flags=log_scale_flags)
         forward_model = GaussianSignal()
@@ -106,17 +100,14 @@ def main() -> None:
         sys.stderr.write(f"Error during component initialization: {e}\n")
         sys.exit(1)
 
-    # 4. Execute Multi-dimensional Parameter Space Exploration
     sys.stdout.write("Initiating nested sampling sequence...\n")
     try:
         results = inference_engine.execute(dlogz=args.tol)
         
-        # Output quantitative metrics
         sys.stdout.write("Inference execution successfully concluded.\n")
         sys.stdout.write(f"Global Log-Evidence (ln Z): {results['log_evidence']:.5f} +/- {results['log_evidence_err']:.5f}\n")
         sys.stdout.write(f"Effective Sample Size: {len(results['samples'])}\n")
         
-        # 5. Serialize Deliverable
         inference_engine.serialize_results(args.output)
         sys.stdout.write(f"Results serialized to {args.output}\n")
         

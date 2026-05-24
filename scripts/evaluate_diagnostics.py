@@ -6,19 +6,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-# Absolute imports mapping to the pipeline architecture
-from ssr_inference.forward_model.signal import GaussianSignal
-from ssr_inference.validation.residuals import ResidualDiagnostics
+from bwsr_inference.forward_model.signal import GaussianSignal
+from bwsr_inference.validation.residuals import ResidualDiagnostics
 
 
 def parse_arguments() -> argparse.Namespace:
-    """
+    r"""
     Parse command-line arguments for executing the diagnostic evaluation phase.
-
-    Returns
-    -------
-    argparse.Namespace
-        The populated argument namespace.
     """
     parser = argparse.ArgumentParser(
         description="Assess goodness-of-fit and isolate systematic residual structures via LOWESS."
@@ -51,30 +45,16 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def extract_map_estimate(results_path: Path) -> np.ndarray:
-    """
+    r"""
     Extract the Maximum A Posteriori (MAP) parameter array from the serialized binary.
-
-    Parameters
-    ----------
-    results_path : Path
-        Filesystem path to the inference binary target.
-
-    Returns
-    -------
-    np.ndarray
-        The 1-dimensional MAP parameter vector.
-
-    Raises
-    ------
-    IOError
-        If the inference binary is inaccessible or corrupted.
     """
     try:
         with open(results_path, 'rb') as file_descriptor:
             inference_data = pickle.load(file_descriptor)
             
         samples = inference_data['samples']
-        log_likelihoods = inference_data['log_likelihoods']
+        # Correctly reference the internal dynesty log-likelihood key
+        log_likelihoods = inference_data['logl']
         
         map_index = np.argmax(log_likelihoods)
         return samples[map_index, :]
@@ -91,26 +71,9 @@ def generate_diagnostic_graphic(
     chi_squared_nu: float,
     output_path: Path
 ) -> None:
-    """
+    r"""
     Compile a high-resolution, academic-grade vector graphic overlaying the 
     observational data against the MAP model, and analyzing the residual structures.
-
-    Parameters
-    ----------
-    frequencies : np.ndarray
-        Independent variable array.
-    data : np.ndarray
-        Observational power spectral density.
-    model : np.ndarray
-        Deterministic physical model evaluated at the MAP estimate.
-    residuals : np.ndarray
-        Raw differences between data and model.
-    lowess_trend : np.ndarray
-        Non-linear local regression trend isolated from the residuals.
-    chi_squared_nu : float
-        The reduced Chi-squared goodness-of-fit metric.
-    output_path : Path
-        Filesystem path to serialize the resultant PDF.
     """
     plt.rcParams.update({
         "font.family": "serif",
@@ -129,15 +92,13 @@ def generate_diagnostic_graphic(
         gridspec_kw={'height_ratios': [2, 1]}
     )
 
-    # 1. Primary Model Overlay
     ax_main.scatter(frequencies, data, s=2, color='black', alpha=0.5, label='Observational Data')
     ax_main.plot(frequencies, model, color='#d62728', linewidth=2, label='MAP Model Prediction')
     ax_main.set_ylabel('Power Spectral Density')
-    ax_main.set_title(f'Diagnostic Falsification Analysis ($\\chi^2/\\nu = {chi_squared_nu:.3f}$)')
+    ax_main.set_title(rf'Diagnostic Falsification Analysis ($\chi^2/\nu = {chi_squared_nu:.3f}$)')
     ax_main.legend(loc='upper right')
     ax_main.grid(True, which="both", ls="--", alpha=0.3)
 
-    # 2. Residual Evaluation and LOWESS Trend
     ax_res.scatter(frequencies, residuals, s=2, color='gray', alpha=0.6, label='Raw Residuals')
     ax_res.axhline(0.0, color='black', linewidth=1, linestyle='--')
     ax_res.plot(frequencies, lowess_trend, color='#1f77b4', linewidth=2.5, label='LOWESS Systematic Trend')
@@ -158,7 +119,7 @@ def generate_diagnostic_graphic(
 
 
 def main() -> None:
-    """
+    r"""
     Primary execution sequence for model falsification via residual diagnostics.
     """
     args = parse_arguments()
@@ -172,20 +133,16 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        # Ingest independent variables and observational matrices
         data_matrix = np.genfromtxt(args.data, delimiter=',', skip_header=1)
         frequencies = data_matrix[:, 0]
         observational_data = data_matrix[:, 1]
         noise_variance = data_matrix[:, 2]
 
-        # Ingest multi-dimensional MAP parameters
         theta_map = extract_map_estimate(args.results)
         
-        # Instantiate the forward physical hypothesis (e.g., Gaussian Transient)
         forward_model = GaussianSignal()
         model_prediction = forward_model(frequencies, theta_map)
 
-        # Initialize and evaluate structural diagnostics
         diagnostics = ResidualDiagnostics(
             observational_data=observational_data,
             model_prediction=model_prediction,
@@ -196,12 +153,10 @@ def main() -> None:
         chi_squared_nu = diagnostics.compute_reduced_chi_squared()
         lowess_trend = diagnostics.compute_lowess_trend(frequencies, fraction=args.frac)
         
-        # Formulate execution summaries for stdout
         sys.stdout.write("Diagnostic evaluation successfully executed.\n")
         sys.stdout.write(f"Extracted MAP Parameter Vector: {theta_map}\n")
         sys.stdout.write(f"Reduced Chi-Squared (Goodness-of-Fit): {chi_squared_nu:.5f}\n")
 
-        # Compile objective vector graphics
         generate_diagnostic_graphic(
             frequencies=frequencies,
             data=observational_data,
