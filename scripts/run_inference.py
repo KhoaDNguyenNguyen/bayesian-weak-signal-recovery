@@ -150,12 +150,12 @@ def main() -> None:
 
     # Prior bounds accommodating the 6-dimensional composite state space
     prior_bounds = np.array([
-        [1.0, 100.0],                                  # BG Amplitude
-        [1e-3, 1.0],                                   # BG Decay Constant
-        [0.0, 50.0],                                   # BG Offset
-        [1e-2, 10.0],                                  # Signal Amplitude
-        [40.0, 45.0],                                  # TARGETED: Signal Center Frequency
-        [1e-2, 10.0]                                   # Signal Width
+        [1.0, 100.0],                                 # BG Amplitude
+        [1e-3, 1.0],                                  # BG Decay Constant
+        [0.0, 50.0],                                  # BG Offset
+        [1e-2, 10.0],                                 # Signal Amplitude
+        [40.0, 45.0],                                 # TARGETED: Signal Center Frequency
+        [1e-2, 10.0]                                  # Signal Width
     ], dtype=np.float64)
     
     log_scale_flags = np.array([True, True, False, True, False, True], dtype=np.bool_)
