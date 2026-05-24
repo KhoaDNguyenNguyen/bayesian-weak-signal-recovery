@@ -7,16 +7,16 @@ from pathlib import Path
 
 
 class NestedInferenceEngine:
-    """
-    Execution engine for Dynamic Nested Sampling to evaluate the marginal 
-    likelihood (Bayesian Evidence) and compute posterior probability distributions.
+    r"""
+        Execution engine for Dynamic Nested Sampling to evaluate the marginal 
+        likelihood (Bayesian Evidence) and compute posterior probability distributions.
 
-    Nested Sampling computes the multi-dimensional integral:
-        Z = \\int \\mathcal{L}(\\theta) \\pi(\\theta) d\\theta
-    by transforming the volume element to prior mass X, yielding:
-        Z = \\int_0^1 \\mathcal{L}(X) dX
-    where \\mathcal{L} is the likelihood function and \\pi is the prior density.
-    """
+        Nested Sampling computes the multi-dimensional integral:
+            Z = \int \mathcal{L}(\theta) \pi(\theta) d\theta
+        by transforming the volume element to prior mass X, yielding:
+            Z = \int_0^1 \mathcal{L}(X) dX
+        where \mathcal{L} is the likelihood function and \pi is the prior density.
+        """
 
     def __init__(
         self,
@@ -25,7 +25,9 @@ class NestedInferenceEngine:
         n_dim: int,
         n_live_points: int = 1000,
         bounding_method: str = 'multi',
-        sampling_method: str = 'auto'
+        sampling_method: str = 'auto',
+        pool: Optional[Any] = None,
+        queue_size: Optional[int] = None
     ) -> None:
         """
         Initialize the Nested Sampling execution engine.
@@ -33,22 +35,23 @@ class NestedInferenceEngine:
         Parameters
         ----------
         log_likelihood : Callable[[npt.NDArray[np.float64]], float]
-            The log-likelihood function (Chunk 3.2).
+            The log-likelihood function formulation.
         prior_transform : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
             The prior transformation function mapping the unit hypercube to 
-            the physical parameter space (Chunk 3.2).
+            the physical parameter space.
         n_dim : int
             Dimensionality of the parameter space (D).
         n_live_points : int, optional
             Number of live points maintained during the sampling process. 
-            Higher values increase resolution at the cost of computational time.
             Default is 1000.
         bounding_method : str, optional
-            Method used to bound the prior volume ('none', 'single', 'multi', 'balls', 'cubes').
-            Default is 'multi' (multiple ellipsoids).
+            Method used to bound the prior volume. Default is 'multi'.
         sampling_method : str, optional
-            Method used to sample the bounded prior volume ('unif', 'rwalk', 'slice', 'rslice', 'auto').
-            Default is 'auto'.
+            Method used to sample the bounded prior volume. Default is 'auto'.
+        pool : Optional[Any], optional
+            A multiprocessing execution pool for parallel likelihood evaluation.
+        queue_size : Optional[int], optional
+            The number of parallel evaluations to queue.
 
         Raises
         ------
@@ -71,22 +74,21 @@ class NestedInferenceEngine:
             ndim=self._n_dim,
             nlive=self._n_live_points,
             bound=bounding_method,
-            sample=sampling_method
+            sample=sampling_method,
+            pool=pool,
+            queue_size=queue_size
         )
         self._results: Optional[dynesty.results.Results] = None
 
     def execute(self, dlogz: float = 0.1) -> Dict[str, Any]:
-        """
+        r"""
         Execute the nested sampling algorithm until the convergence criterion is met.
-
-        The algorithm terminates when the estimated evidence contribution from 
-        the remaining prior volume is less than `dlogz`.
 
         Parameters
         ----------
         dlogz : float, optional
             The convergence tolerance representing the remaining log-evidence 
-            contribution (\\Delta \\ln Z). Default is 0.1.
+            contribution (\Delta \ln Z). Default is 0.1.
 
         Returns
         -------
@@ -99,7 +101,7 @@ class NestedInferenceEngine:
         ValueError
             If the convergence tolerance is negative.
         RuntimeError
-            If the sampling algorithm encounters a numerical instability or fails to converge.
+            If the sampling algorithm encounters a numerical instability.
         """
         if dlogz < 0.0:
             raise ValueError("Convergence tolerance dlogz must be non-negative.")
@@ -127,13 +129,6 @@ class NestedInferenceEngine:
         ----------
         output_path : Path
             The file system path where the binary object will be stored.
-
-        Raises
-        ------
-        RuntimeError
-            If execution has not been performed prior to serialization.
-        IOError
-            If the specified path is unwritable.
         """
         if self._results is None:
             raise RuntimeError("Cannot serialize results: Nested sampling has not been executed.")
