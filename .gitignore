@@ -43,3 +43,12 @@ data/synthetic/*
 !data/synthetic/.gitkeep
 
 bwsr-env/
+flatten.py
+flattened_workspace/
+bayesian-weak-signal-recovery/data/archive/
+# Ignore raw SDR binary payloads and large serialization artifacts
+*.dat
+*.pkl
+
+# Ignore local academic archives to prevent repository bloating
+data/archive/
