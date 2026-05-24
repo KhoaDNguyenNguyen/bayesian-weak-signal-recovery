@@ -7,16 +7,16 @@ from pathlib import Path
 
 
 class NestedInferenceEngine:
-    r"""
-        Execution engine for Dynamic Nested Sampling to evaluate the marginal 
-        likelihood (Bayesian Evidence) and compute posterior probability distributions.
+    """
+    Execution engine for Dynamic Nested Sampling to evaluate the marginal 
+    likelihood (Bayesian Evidence) and compute posterior probability distributions.
 
-        Nested Sampling computes the multi-dimensional integral:
-            Z = \int \mathcal{L}(\theta) \pi(\theta) d\theta
-        by transforming the volume element to prior mass X, yielding:
-            Z = \int_0^1 \mathcal{L}(X) dX
-        where \mathcal{L} is the likelihood function and \pi is the prior density.
-        """
+    Nested Sampling computes the multi-dimensional integral:
+        Z = \int \mathcal{L}(\theta) \pi(\theta) d\theta
+    by transforming the volume element to prior mass X, yielding:
+        Z = \int_0^1 \mathcal{L}(X) dX
+    where \mathcal{L} is the likelihood function and \pi is the prior density.
+    """
 
     def __init__(
         self,
@@ -81,7 +81,7 @@ class NestedInferenceEngine:
         self._results: Optional[dynesty.results.Results] = None
 
     def execute(self, dlogz: float = 0.1) -> Dict[str, Any]:
-        r"""
+        """
         Execute the nested sampling algorithm until the convergence criterion is met.
 
         Parameters
