@@ -14,7 +14,7 @@ def evaluate_exponential_background(
     decay_constant: float,
     offset: float
 ) -> npt.NDArray[np.float64]:
-    """
+    r"""
     Compute the deterministic exponential continuum representing non-linear 
     background emission.
 
@@ -46,7 +46,7 @@ def evaluate_gaussian_signal(
     center_frequency: float,
     standard_deviation: float
 ) -> npt.NDArray[np.float64]:
-    """
+    r"""
     Compute the deterministic Gaussian transient representing the latent 
     resonance signature.
 
@@ -86,7 +86,7 @@ def inject_stochastic_noise(
     noise_standard_deviation: float,
     random_seed: int = 42
 ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """
+    r"""
     Inject Additive White Gaussian Noise (AWGN) to synthesize the observable dataset.
 
     Theoretical Formulation:
@@ -126,13 +126,8 @@ def inject_stochastic_noise(
 
 
 def parse_arguments() -> argparse.Namespace:
-    """
+    r"""
     Parse command-line configurations for the synthetic generation procedure.
-
-    Returns
-    -------
-    argparse.Namespace
-        The parsed execution parameters.
     """
     parser = argparse.ArgumentParser(
         description="Generate a synthetic frequency spectrum containing a weak latent resonance signature."
@@ -171,7 +166,7 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    """
+    r"""
     Primary execution sequence for synthesizing the baseline weak-signal dataset.
     """
     args = parse_arguments()
@@ -184,41 +179,28 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        # 1. Initialize Independent Variable Domain
         frequencies = np.linspace(args.f_min, args.f_max, args.resolution, dtype=np.float64)
 
-        # 2. Define Latent Ground Truth Parameters
-        # Background Hypothesis: Non-linear Exponential
         bg_amplitude = 25.0
         bg_decay = 0.05
         bg_offset = 5.0
         
-        # Signal Hypothesis: Weak Gaussian Transient
         sig_amplitude = 1.2
         sig_center = 42.5
         sig_width = 0.8
         
-        # Stochastic Assumption: Additive White Gaussian Noise
-        noise_std = 3.5  # Substantial variance to ensure low Signal-to-Noise Ratio (SNR)
+        noise_std = 3.5
 
-        # 3. Construct Deterministic Physical Models
-        background_model = evaluate_exponential_background(
-            frequencies, bg_amplitude, bg_decay, bg_offset
-        )
-        signal_model = evaluate_gaussian_signal(
-            frequencies, sig_amplitude, sig_center, sig_width
-        )
+        background_model = evaluate_exponential_background(frequencies, bg_amplitude, bg_decay, bg_offset)
+        signal_model = evaluate_gaussian_signal(frequencies, sig_amplitude, sig_center, sig_width)
         total_deterministic_model = background_model + signal_model
 
-        # 4. Inject Stochastic Processes
         observational_data, variance_array = inject_stochastic_noise(
             deterministic_model=total_deterministic_model,
             noise_standard_deviation=noise_std,
             random_seed=args.seed
         )
 
-        # 5. Serialize Output Matrix
-        # Integration requirement: Pipeline expects Frequency, Power Spectral Density, and Variance
         dataset = pd.DataFrame({
             'Frequency_Hz': frequencies,
             'Power_Spectral_Density': observational_data,
@@ -228,7 +210,6 @@ def main() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         dataset.to_csv(args.output, index=False)
 
-        # Output explicit parameter confirmation to standard output
         sys.stdout.write("Synthetic data generation successfully executed.\n")
         sys.stdout.write("--- Latent Ground Truth Parameters ---\n")
         sys.stdout.write(f"Background Model: Amplitude={bg_amplitude}, Decay={bg_decay}, Offset={bg_offset}\n")
