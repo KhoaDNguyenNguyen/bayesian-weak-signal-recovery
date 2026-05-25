@@ -149,7 +149,7 @@ def generate_crlb_diagnostic_plot(
     ax.set_xticklabels([fr"$\theta_{{{i}}}$" for i in range(n_params)])
     ax.set_yscale('log')
     
-    ax.legend(loc='upper right')
+    ax.legend(loc='upper left')
     ax.grid(True, which="both", ls="--", alpha=0.5)
 
     try:
