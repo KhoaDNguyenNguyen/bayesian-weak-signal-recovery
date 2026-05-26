@@ -10,26 +10,12 @@ posterior variance extracted via Nested Sampling.
 import argparse
 import sys
 from pathlib import Path
+from typing import List
 import numpy as np
 import numpy.typing as npt
 
-from bwsr_inference.forward_model.signal import AbstractForwardModel, GaussianSignal
-from bwsr_inference.forward_model.background import PolynomialBackground
+from bwsr_inference.forward_model import MODEL_ZOO
 from bwsr_inference.validation.crlb import evaluate_asymptotic_limits
-
-
-class CompositeForwardModel(AbstractForwardModel):
-    """
-    Constructs the exact deterministic mapping function evaluated during the inference phase.
-    """
-    def __init__(self) -> None:
-        self._background_model = PolynomialBackground()
-        self._signal_model = GaussianSignal()
-
-    def __call__(self, frequencies: npt.NDArray[np.float64], theta: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        if theta.size != 4:
-            raise ValueError(f"Composite model expects exactly 4 parameters, received {theta.size}.")
-        return self._background_model(frequencies, theta[0:1]) + self._signal_model(frequencies, theta[1:4])
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -63,11 +49,35 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         '--model', 
         type=str, 
-        choices=['h0', 'h1'], 
+        choices=list(MODEL_ZOO.keys()), 
         required=True,
-        help="Hypothesis classification to dictate the forward model construction."
+        help="Hypothesis classification to dictate the forward model construction via the MODEL_ZOO."
     )
     return parser.parse_args()
+
+
+def _resolve_parameter_labels(model_id: str, total_parameters: int) -> List[str]:
+    """
+    Dynamically resolve parameter naming conventions to support arbitrary background complexity.
+    """
+    if model_id == 'h0':
+        n_bg = total_parameters
+        sig_labels: List[str] = []
+    elif model_id == 'h1_gauss':
+        n_bg = total_parameters - 3
+        sig_labels = ["Sig_Amp", "Sig_Center", "Sig_Width"]
+    elif model_id == 'h1_voigt':
+        n_bg = total_parameters - 4
+        sig_labels = ["Sig_Amp", "Sig_Center", "Sig_Sigma", "Sig_Gamma"]
+    else:
+        return [f"Theta_{i}" for i in range(total_parameters)]
+
+    if n_bg == 1:
+        bg_labels = ["AWGN_Floor"]
+    else:
+        bg_labels = [f"Bg_Coeff_{i}" for i in range(n_bg)]
+        
+    return bg_labels + sig_labels
 
 
 def main() -> None:
@@ -83,12 +93,7 @@ def main() -> None:
         sys.stderr.write(f"Error: Inference results file {args.results} cannot be located.\n")
         sys.exit(1)
 
-    if args.model == 'h0':
-        forward_model = PolynomialBackground()
-        parameter_labels = ["AWGN_Floor"]
-    else:
-        forward_model = CompositeForwardModel()
-        parameter_labels = ["AWGN_Floor", "Sig_Amp", "Sig_Center", "Sig_Width"]
+    forward_model = MODEL_ZOO[args.model]
 
     try:
         sys.stdout.write("Executing Fisher Information Matrix computations...\n")
@@ -107,6 +112,8 @@ def main() -> None:
         theta_map = evaluation_metrics["theta_map"]
         crlb = evaluation_metrics["cramer_rao_lower_bound"]
         empirical_variance = evaluation_metrics["empirical_variance"]
+
+        parameter_labels = _resolve_parameter_labels(args.model, theta_map.size)
 
         for idx, label in enumerate(parameter_labels):
             sys.stdout.write(

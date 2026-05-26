@@ -52,3 +52,5 @@ bayesian-weak-signal-recovery/data/archive/
 
 # Ignore local academic archives to prevent repository bloating
 data/archive/
+.vscode/
+.idea/

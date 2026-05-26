@@ -1,0 +1,59 @@
+{
+    "h0": {
+        "description": "Null Hypothesis: Continuous Polynomial Background",
+        "parameters": [
+            "AWGN_Floor"
+        ],
+        "bounds": [
+            [1e-6, 1e-4]
+        ],
+        "log_scale_flags": [
+            true
+        ]
+    },
+    "h1_gauss": {
+        "description": "Alternative Hypothesis: Gaussian Transient superimposed on Polynomial Background",
+        "parameters": [
+            "AWGN_Floor",
+            "Sig_Amp",
+            "Sig_Center",
+            "Sig_Width"
+        ],
+        "bounds": [
+            [1e-6, 1e-4],
+            [1e-8, 1e-4],
+            [0.0, 16000.0],
+            [1.0, 500.0]
+        ],
+        "log_scale_flags": [
+            true,
+            true,
+            false,
+            true
+        ]
+    },
+    "h1_voigt": {
+        "description": "Alternative Hypothesis: Pseudo-Voigt Transient superimposed on Polynomial Background",
+        "parameters": [
+            "AWGN_Floor",
+            "Sig_Amp",
+            "Sig_Center",
+            "Sig_Sigma",
+            "Sig_Gamma"
+        ],
+        "bounds": [
+            [1e-6, 1e-4],
+            [1e-8, 1e-4],
+            [0.0, 16000.0],
+            [1.0, 500.0],
+            [1.0, 500.0]
+        ],
+        "log_scale_flags": [
+            true,
+            true,
+            false,
+            true,
+            true
+        ]
+    }
+}

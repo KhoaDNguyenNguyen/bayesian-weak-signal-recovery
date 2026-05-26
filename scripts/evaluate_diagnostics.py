@@ -6,27 +6,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy.typing as npt
-from typing import Tuple
+from typing import Tuple, List
 
-from bwsr_inference.forward_model.signal import AbstractForwardModel, GaussianSignal
-from bwsr_inference.forward_model.background import PolynomialBackground
+from bwsr_inference.forward_model import MODEL_ZOO
 from bwsr_inference.validation.residuals import ResidualDiagnostics
 
-class CompositeForwardModel(AbstractForwardModel):
-    def __init__(self) -> None:
-        self._background_model = PolynomialBackground()
-        self._signal_model = GaussianSignal()
-
-    def __call__(self, frequencies: npt.NDArray[np.float64], theta: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return self._background_model(frequencies, theta[0:1]) + self._signal_model(frequencies, theta[1:4])
-
 def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=Path, required=True)
-    parser.add_argument('--results', type=Path, required=True)
-    parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--model', type=str, choices=['h0', 'h1'], required=True)
-    parser.add_argument('--frac', type=float, default=0.15)
+    parser = argparse.ArgumentParser(description="Evaluate residual diagnostics and Goodness-of-Fit.")
+    parser.add_argument('--data', type=Path, required=True, help="Path to the Layer 1 observational CSV data.")
+    parser.add_argument('--results', type=Path, required=True, help="Path to the serialized Nested Sampling inference results.")
+    parser.add_argument('--output', type=Path, required=True, help="Target output path for the diagnostic graphic (.pdf).")
+    parser.add_argument('--model', type=str, choices=list(MODEL_ZOO.keys()), required=True, help="Hypothesis classification to dictate the forward model construction via the MODEL_ZOO.")
+    parser.add_argument('--frac', type=float, default=0.15, help="Bandwidth fraction for the LOWESS non-parametric structural trend fitting.")
     return parser.parse_args()
 
 def extract_posterior_statistics(results_path: Path) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
@@ -39,6 +30,29 @@ def extract_posterior_statistics(results_path: Path) -> Tuple[npt.NDArray[np.flo
     theta_mean = np.average(samples, weights=normalized_weights, axis=0)
     theta_variance = np.average((samples - theta_mean)**2, weights=normalized_weights, axis=0)
     return theta_mean, np.sqrt(theta_variance)
+
+def _resolve_parameter_labels(model_id: str, total_parameters: int) -> List[str]:
+    """
+    Dynamically resolve parameter naming conventions to support arbitrary background complexity.
+    """
+    if model_id == 'h0':
+        n_bg = total_parameters
+        sig_labels: List[str] = []
+    elif model_id == 'h1_gauss':
+        n_bg = total_parameters - 3
+        sig_labels = ["Sig_Amp", "Sig_Center", "Sig_Width"]
+    elif model_id == 'h1_voigt':
+        n_bg = total_parameters - 4
+        sig_labels = ["Sig_Amp", "Sig_Center", "Sig_Sigma", "Sig_Gamma"]
+    else:
+        return [f"Theta_{i}" for i in range(total_parameters)]
+
+    if n_bg == 1:
+        bg_labels = ["AWGN_Floor"]
+    else:
+        bg_labels = [f"Bg_Coeff_{i}" for i in range(n_bg)]
+        
+    return bg_labels + sig_labels
 
 def generate_diagnostic_graphic(frequencies, data, model, residuals, lowess_trend, chi_squared_nu, output_path):
     plt.rcParams.update({
@@ -76,12 +90,8 @@ def main() -> None:
 
     theta_mean, theta_std = extract_posterior_statistics(args.results)
     
-    if args.model == 'h0':
-        forward_model = PolynomialBackground()
-        labels = ["AWGN_Floor"]
-    else:
-        forward_model = CompositeForwardModel()
-        labels = ["AWGN_Floor", "Sig_Amp", "Sig_Center", "Sig_Width"]
+    forward_model = MODEL_ZOO[args.model]
+    labels = _resolve_parameter_labels(args.model, theta_mean.size)
 
     model_prediction = forward_model(frequencies, theta_mean)
 
