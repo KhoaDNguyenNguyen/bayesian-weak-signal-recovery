@@ -13,6 +13,7 @@ import os
 import json
 import multiprocessing as mp
 import numpy as np
+import numpy.typing as npt
 from pathlib import Path
 from typing import Dict, Any, Tuple
 
