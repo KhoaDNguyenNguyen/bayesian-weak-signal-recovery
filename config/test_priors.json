@@ -1,0 +1,25 @@
+{
+    "h0": {
+        "description": "Null Hypothesis: Polynomial Background (3 parameters)",
+        "parameters": ["c0", "c1", "c2"],
+        "bounds": [
+            [0.0, 50.0],
+            [-5.0, 5.0],
+            [-0.1, 0.1]
+        ],
+        "log_scale_flags": [false, false, false]
+    },
+    "h1_gauss": {
+        "description": "Alternative Hypothesis: Gaussian Transient superimposed on Polynomial Background",
+        "parameters": ["c0", "c1", "c2", "Sig_Amp", "Sig_Center", "Sig_Width"],
+        "bounds": [
+            [0.0, 50.0],
+            [-5.0, 5.0],
+            [-0.1, 0.1],
+            [0.1, 5.0],
+            [20.0, 80.0],
+            [0.1, 3.0]
+        ],
+        "log_scale_flags": [false, false, false, false, false, false]
+    }
+}
