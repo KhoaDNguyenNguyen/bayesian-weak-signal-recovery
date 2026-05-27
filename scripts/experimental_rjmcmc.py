@@ -187,6 +187,9 @@ def main() -> None:
             raise RuntimeError("All computational threads aborted unexpectedly.")
 
         total_valid_samples = global_n_h0 + global_n_h1
+        if total_valid_samples == 0:
+            raise ValueError("Burn-in period exceeds or equals the total iterations. No valid samples were collected.")
+        
         p_h0 = global_n_h0 / total_valid_samples
         p_h1 = global_n_h1 / total_valid_samples
         mean_acceptance = np.mean(acceptance_rates)
@@ -214,6 +217,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # Fork semantics prevent deadlocks during C++ interoperability across parallel processes
-    mp.set_start_method('fork', force=True)
+    # Enforce forkserver semantics to guarantee robust isolation of C-extension 
+    # threading states and unconditionally prevent pre-forking process deadlocks.
+    mp.set_start_method('forkserver', force=True)
     main()

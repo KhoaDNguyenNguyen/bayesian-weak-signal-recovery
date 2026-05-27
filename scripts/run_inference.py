@@ -208,6 +208,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # Enforce fork semantics to prevent deadlock overhead in POSIX environments
-    mp.set_start_method('fork', force=True)
+    # Enforce forkserver semantics to guarantee robust isolation of C-extension 
+    # threading states (e.g., OpenBLAS) and unconditionally prevent process deadlocks.
+    mp.set_start_method('forkserver', force=True)
     main()
