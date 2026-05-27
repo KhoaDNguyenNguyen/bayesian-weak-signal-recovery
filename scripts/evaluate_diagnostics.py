@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import shutil
+import warnings
 import argparse
 import sys
 import pickle
@@ -55,8 +57,14 @@ def _resolve_parameter_labels(model_id: str, total_parameters: int) -> List[str]
     return bg_labels + sig_labels
 
 def generate_diagnostic_graphic(frequencies, data, model, residuals, lowess_trend, chi_squared_nu, output_path):
+    use_tex = shutil.which("latex") is not None
+    if not use_tex:
+        warnings.warn("LaTeX distribution not detected. Defaulting to standard matplotlib text rendering capabilities.", category=UserWarning)
+
     plt.rcParams.update({
-        "text.usetex": True, "font.family": "serif", "font.serif": ["Computer Modern Roman"],
+        "text.usetex": use_tex, 
+        "font.family": "serif", 
+        "font.serif": ["Computer Modern Roman"] if use_tex else ["DejaVu Serif"],
         "axes.labelsize": 12, "font.size": 10, "legend.fontsize": 10,
         "xtick.labelsize": 10, "ytick.labelsize": 10
     })
