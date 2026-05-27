@@ -87,6 +87,9 @@ def compute_spectral_statistics(
     # Number of temporal segments (K)
     k_segments = periodogram_matrix.shape[1]
 
+    if k_segments <= 1:
+        raise ValueError(f"Insufficient data for variance estimation. Segments available: {k_segments}. Requires at least 2 independent segments.")
+
     # Compute expected mean PSD
     expected_psd = np.mean(periodogram_matrix, axis=1)
     
