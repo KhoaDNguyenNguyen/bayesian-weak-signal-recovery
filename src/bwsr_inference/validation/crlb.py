@@ -1,3 +1,5 @@
+import shutil
+import warnings
 import pickle
 import numpy as np
 import numpy.typing as npt
@@ -66,6 +68,14 @@ class FisherInformationMatrix:
     ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         jacobian = self._compute_jacobian(theta_map)
         fim = np.dot(jacobian.T, self._inv_variance[:, np.newaxis] * jacobian)
+        
+        condition_number = np.linalg.cond(fim)
+        if condition_number > 1e15:
+            warnings.warn(
+                f"Fisher Information Matrix is heavily ill-conditioned (Condition Number: {condition_number:.2e}). "
+                "Parameter estimates may be degenerate. Proceeding with pseudo-inverse calculation.",
+                category=RuntimeWarning
+            )
 
         try:
             fim_inverse = np.linalg.pinv(fim, rcond=1e-15)
@@ -112,10 +122,14 @@ def generate_crlb_diagnostic_plot(
     indices = np.arange(n_params)
     width = 0.35
 
+    use_tex = shutil.which("latex") is not None
+    if not use_tex:
+        warnings.warn("LaTeX distribution not detected. Defaulting to standard matplotlib text rendering capabilities.", category=UserWarning)
+
     plt.rcParams.update({
-        "text.usetex": True,  
+        "text.usetex": use_tex,  
         "font.family": "serif",
-        "font.serif": ["Computer Modern Roman"],
+        "font.serif": ["Computer Modern Roman"] if use_tex else ["DejaVu Serif"],
         "axes.labelsize": 12,
         "font.size": 10,
         "legend.fontsize": 10,
