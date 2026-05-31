@@ -52,5 +52,11 @@ bayesian-weak-signal-recovery/data/archive/
 
 # Ignore local academic archives to prevent repository bloating
 data/archive/
+data/
 .vscode/
 .idea/
+# Ignore experiment provenance reports but preserve directory structure
+data/reports/*
+!data/reports/.gitkeep
+experiments/*
+!experiments/.gitkeep
