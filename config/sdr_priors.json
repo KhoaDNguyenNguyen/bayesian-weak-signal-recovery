@@ -1,0 +1,59 @@
+{
+    "h0": {
+        "description": "Null Hypothesis: Flat AWGN Background",
+        "parameters": [
+            "Bg_Coeff_0"
+        ],
+        "bounds": [
+            [1e-7, 1e-2]
+        ],
+        "log_scale_flags": [
+            true
+        ]
+    },
+    "h1_gauss": {
+        "description": "Alternative Hypothesis: Gaussian Transient superimposed on AWGN",
+        "parameters": [
+            "Bg_Coeff_0",
+            "Sig_Amp",
+            "Sig_Center",
+            "Sig_Width"
+        ],
+        "bounds": [
+            [1e-7, 1e-2],
+            [1e-8, 1e-2],
+            [-16000.0, 16000.0],
+            [1.0, 500.0]
+        ],
+        "log_scale_flags": [
+            true,
+            true,
+            false,
+            false
+        ]
+    },
+    "h1_voigt": {
+        "description": "Alternative Hypothesis: Pseudo-Voigt Transient superimposed on AWGN",
+        "parameters": [
+            "Bg_Coeff_0",
+            "Sig_Amp",
+            "Sig_Center",
+            "Sig_Sigma",
+            "Sig_Gamma"
+        ],
+        "bounds": [
+            [1e-7, 1e-2],
+            [1e-8, 1e-2],
+            [-16000.0, 16000.0],
+            [1.0, 500.0],
+            [1.0, 500.0]
+        ],
+        "log_scale_flags": [
+            true,
+            true,
+            false,
+            false,
+            false
+        ]
+    }
+}
