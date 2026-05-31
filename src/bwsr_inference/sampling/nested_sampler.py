@@ -107,6 +107,7 @@ class NestedInferenceEngine:
             raise ValueError("Convergence tolerance dlogz must be non-negative.")
 
         try:
+            # Retain standard output generation to be parsed by the orchestrator
             self._sampler.run_nested(dlogz=dlogz)
         except Exception as e:
             raise RuntimeError(f"Nested sampling execution failed: {e}")
