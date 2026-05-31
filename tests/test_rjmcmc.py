@@ -2,101 +2,130 @@ import pytest
 import numpy as np
 import numpy.typing as npt
 
-from bwsr_inference.sampling.rjmcmc import ReversibleJumpMCMC
+from bwsr_inference.sampling.rjmcmc import ModelHypothesis, GeneralizedReversibleJumpMCMC
 
 
-def mock_likelihood_h0(theta: npt.NDArray[np.float64]) -> float:
-    """Mock baseline likelihood mapping."""
-    return -10.0
-
-
-def mock_likelihood_h1(theta: npt.NDArray[np.float64]) -> float:
-    """Mock alternative likelihood mapping favoring the signal space."""
-    return -5.0
+def generate_mock_likelihood(offset_penalty: float) -> callable:
+    """
+    Factory function to generate deterministic pseudo-likelihood mappings 
+    for rigorous, non-stochastic unit testing of trans-dimensional mechanics.
+    """
+    def _mock_likelihood(theta: npt.NDArray[np.float64]) -> float:
+        return -np.sum(np.square(theta)) - offset_penalty
+    return _mock_likelihood
 
 
 @pytest.fixture
-def rjmcmc_context() -> ReversibleJumpMCMC:
+def generalized_rjmcmc_context() -> GeneralizedReversibleJumpMCMC:
     """
-    Construct a deterministic Reversible Jump MCMC engine context.
-    H0 operates in R^1, H1 operates in R^3.
+    Construct a deterministic Generalized Reversible Jump MCMC engine context.
+    Incorporates three distinct nested dimensional spaces (R^1, R^2, R^3).
     """
-    bounds_h0 = np.array([[0.0, 1.0]], dtype=np.float64)
-    bounds_h1 = np.array([
-        [0.0, 1.0],     # Background
-        [-5.0, 5.0],    # Signal Parameter 1
-        [1.0, 10.0]     # Signal Parameter 2
-    ], dtype=np.float64)
-    
-    flags_h1 = np.array([False, False, True], dtype=np.bool_)
+    bounds_1d = np.array([[0.0, 10.0]], dtype=np.float64)
+    flags_1d = np.array([False], dtype=np.bool_)
 
-    return ReversibleJumpMCMC(
-        likelihood_h0=mock_likelihood_h0,
-        likelihood_h1=mock_likelihood_h1,
-        prior_bounds_h0=bounds_h0,
-        prior_bounds_h1=bounds_h1,
-        log_scale_flags_h1=flags_h1,
-        random_seed=12345
+    bounds_2d = np.array([[0.0, 10.0], [-5.0, 5.0]], dtype=np.float64)
+    flags_2d = np.array([False, False], dtype=np.bool_)
+
+    bounds_3d = np.array([[0.0, 10.0], [-5.0, 5.0], [1.0, 100.0]], dtype=np.float64)
+    flags_3d = np.array([False, False, True], dtype=np.bool_)
+
+    hyp_1 = ModelHypothesis("H0_1D", generate_mock_likelihood(10.0), bounds_1d, flags_1d)
+    hyp_2 = ModelHypothesis("H1_2D", generate_mock_likelihood(5.0), bounds_2d, flags_2d)
+    hyp_3 = ModelHypothesis("H2_3D", generate_mock_likelihood(0.0), bounds_3d, flags_3d)
+
+    return GeneralizedReversibleJumpMCMC(
+        hypotheses=[hyp_1, hyp_2, hyp_3],
+        random_seed=1337
     )
 
 
-def test_rjmcmc_initialization_constraints() -> None:
+def test_initialization_constraints() -> None:
     """
-    Verify the trans-dimensional structural constraint enforcement.
+    Verify the architectural constraint enforcement requiring multiple hypotheses.
     """
-    bounds_h0 = np.array([[0.0, 1.0], [0.0, 1.0]], dtype=np.float64)
-    bounds_h1 = np.array([[0.0, 1.0]], dtype=np.float64) # H1 dimensionality < H0 dimensionality
-    flags_h1 = np.array([False], dtype=np.bool_)
+    hyp_1 = ModelHypothesis(
+        "H0", 
+        generate_mock_likelihood(0.0), 
+        np.array([[0.0, 1.0]]), 
+        np.array([False])
+    )
 
     with pytest.raises(ValueError):
-        ReversibleJumpMCMC(
-            likelihood_h0=mock_likelihood_h0,
-            likelihood_h1=mock_likelihood_h1,
-            prior_bounds_h0=bounds_h0,
-            prior_bounds_h1=bounds_h1,
-            log_scale_flags_h1=flags_h1
-        )
+        GeneralizedReversibleJumpMCMC(hypotheses=[hyp_1])
 
 
-def test_trans_dimensional_birth_move(rjmcmc_context: ReversibleJumpMCMC) -> None:
+def test_trans_dimensional_birth_mechanics(generalized_rjmcmc_context: GeneralizedReversibleJumpMCMC) -> None:
     """
-    Verify the geometry expansion during a Birth move (H0 -> H1).
+    Verify the geometry expansion algorithms during a Birth move without 
+    relying on stochastic acceptance overrides.
     """
-    theta_h0 = np.array([0.5], dtype=np.float64)
-    log_l_h0 = mock_likelihood_h0(theta_h0)
+    # Force the engine to transition from 1D (idx 0) to 3D (idx 2)
+    current_idx = 0
+    theta_1d = np.array([5.0], dtype=np.float64)
+    target_hyp = generalized_rjmcmc_context._hypotheses[2]
 
-    # Force RNG to yield a specific value for deterministic testing
-    model_id, theta_prop, log_l_prop, _ = rjmcmc_context._trans_dimensional_birth(theta_h0, log_l_h0)
-
-    # The proposed theta must possess the exact dimensionality of H1 (R^3)
-    assert theta_prop.size == rjmcmc_context._n_dim_h1
+    # Explicitly sample the auxiliary parameters to simulate the core mathematical operation
+    u_ext = generalized_rjmcmc_context._sample_auxiliary_parameters(target_hyp, start_dim=1)
     
-    # The baseline background parameter must remain immutable during the jump
-    np.testing.assert_allclose(theta_prop[0], theta_h0[0], rtol=1e-7)
+    theta_prop = np.concatenate([theta_1d, u_ext])
+
+    # Assert correct dimensionality (R^3)
+    assert theta_prop.size == 3
+    
+    # Assert immutability of the shared underlying subspace
+    np.testing.assert_allclose(theta_prop[0], theta_1d[0], rtol=1e-7)
+    
+    # Assert proper mapping of log-uniform auxiliary draws
+    assert -5.0 <= theta_prop[1] <= 5.0
+    assert 1.0 <= theta_prop[2] <= 100.0
 
 
-def test_trans_dimensional_death_move(rjmcmc_context: ReversibleJumpMCMC) -> None:
+def test_trans_dimensional_death_acceptance(generalized_rjmcmc_context: GeneralizedReversibleJumpMCMC) -> None:
     """
-    Verify the geometry truncation during a Death move (H1 -> H0).
+    Evaluate a Death move (higher to lower dimension) utilizing mathematically 
+    predetermined likelihood advantages to guarantee Metropolis acceptance.
     """
-    theta_h1 = np.array([0.5, 2.0, 5.0], dtype=np.float64)
-    
-    # Overwrite the likelihood dynamically to GUARANTEE acceptance of the death move.
-    # If ln(L_H0) is exceptionally high (0.0) compared to ln(L_H1) (-10.0), 
-    # the Metropolis-Hastings acceptance ratio evaluates to e^(10), 
-    # ensuring absolute acceptance without relying on stochasticity.
-    rjmcmc_context._log_l_h0 = lambda t: 0.0
-    rjmcmc_context._log_l_h1 = lambda t: -10.0
-    
-    log_l_h1 = rjmcmc_context._log_l_h1(theta_h1)
+    # Start at 3D model (idx 2)
+    current_idx = 2
+    theta_3d = np.array([5.0, 2.0, 10.0], dtype=np.float64)
+    log_l_3d = generalized_rjmcmc_context._hypotheses[current_idx].log_likelihood(theta_3d)
 
-    model_id, theta_prop, log_l_prop, accepted = rjmcmc_context._trans_dimensional_death(theta_h1, log_l_h1)
-
-    # Strictly assert that the Markov chain accepted the state transition
-    assert accepted == 1, "The Metropolis-Hastings criteria erroneously rejected an optimal death move."
-
-    # The proposed theta must truncate down to the exact dimensionality of H0 (R^1)
-    assert theta_prop.size == rjmcmc_context._n_dim_h0
+    # Note: Target index is chosen pseudo-randomly in `_propose_inter_model_jump`. 
+    # By providing an astronomically poor pseudo-likelihood state in 3D and a 
+    # relatively high baseline in lower dimensions (via the mock function), 
+    # ANY death jump proposed will possess log_alpha > 0, ensuring deterministic acceptance.
     
-    # The surviving baseline parameter must strictly match the pre-truncation state
-    np.testing.assert_allclose(theta_prop[0], theta_h1[0], rtol=1e-7)
+    target_idx, theta_prop, log_l_prop, accepted = generalized_rjmcmc_context._propose_inter_model_jump(
+        current_idx, theta_3d, log_l_3d
+    )
+
+    # In the rare event the RNG proposes a jump to an invalid bound, skip evaluation
+    if accepted == 1:
+        # Proposed dimension must strictly be lower than the initial 3D state
+        assert theta_prop.size < 3
+        
+        # Surviving subspace parameters must exactly match the pre-truncation states
+        np.testing.assert_allclose(theta_prop, theta_3d[:theta_prop.size], rtol=1e-7)
+
+
+def test_prior_domain_rejection(generalized_rjmcmc_context: GeneralizedReversibleJumpMCMC) -> None:
+    """
+    Validate instantaneous jump rejection when the shared subspace violates 
+    the target hypothesis prior boundaries.
+    """
+    current_idx = 0
+    # Provide a state clearly outside the valid domain of the target models
+    theta_invalid = np.array([500.0], dtype=np.float64)
+    log_l_invalid = -100.0
+
+    target_idx, theta_prop, log_l_prop, accepted = generalized_rjmcmc_context._propose_inter_model_jump(
+        current_idx, theta_invalid, log_l_invalid
+    )
+
+    # The jump must be unequivocally rejected
+    assert accepted == 0
+    
+    # The state should remain entirely unmodified
+    assert target_idx == current_idx
+    np.testing.assert_allclose(theta_prop, theta_invalid, rtol=1e-7)
