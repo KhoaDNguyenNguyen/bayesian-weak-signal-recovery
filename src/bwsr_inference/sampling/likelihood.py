@@ -125,12 +125,17 @@ class AbstractLikelihood(abc.ABC):
 
 class DiagonalGaussianLikelihood(AbstractLikelihood):
     """
-    Log-likelihood formulation assuming independent, non-stationary Gaussian 
-    noise across the observational domain (diagonal covariance matrix).
+    Log-likelihood formulation assuming independent Gaussian noise.
 
     Theoretical Formulation:
+    To guarantee numerical stability against instrumental over-filtering 
+    (which drives \\sigma_i^2 \\to 0 in filter stopbands), an asymptotic 
+    variance floor is rigorously enforced:
+        \\sigma_{i, eff}^2 = \\max(\\sigma_i^2, \\epsilon \\cdot \\text{median}(\\sigma^2))
+    
+    The stabilized log-likelihood is:
         \\ln \\mathcal{L}(\\theta) = -\\frac{1}{2} \\sum_{i=1}^{N} \\left[ 
-            \\frac{(D_i - P(f_i, \\theta))^2}{\\sigma_i^2} + \\ln(2\\pi\\sigma_i^2) 
+            \\frac{(D_i - P(f_i, \\theta))^2}{\\sigma_{i, eff}^2} + \\ln(2\\pi\\sigma_{i, eff}^2) 
         \\right]
     """
 
@@ -139,11 +144,11 @@ class DiagonalGaussianLikelihood(AbstractLikelihood):
         frequencies: npt.NDArray[np.float64],
         data: npt.NDArray[np.float64],
         noise_variance: npt.NDArray[np.float64],
-        forward_model: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        forward_model: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        variance_floor_epsilon: float = 1e-5
     ) -> None:
         """
-        Initialize the likelihood and precompute invariants to guarantee 
-        computational efficiency during the sampling regime.
+        Initialize the robust likelihood formulation and precompute invariants.
 
         Parameters
         ----------
@@ -152,15 +157,12 @@ class DiagonalGaussianLikelihood(AbstractLikelihood):
         data : npt.NDArray[np.float64]
             The observational data array (D_i).
         noise_variance : npt.NDArray[np.float64]
-            The variance associated with each datum (\\sigma_i^2).
+            The raw empirical variance associated with each datum (\\sigma_i^2).
         forward_model : Callable
-            The deterministic mapping function P(f_i, \\theta) defined in Chunk 3.1.
-
-        Raises
-        ------
-        ValueError
-            If array dimensions mismatch or if variance assumes unphysical 
-            (non-positive) states.
+            The deterministic mapping function.
+        variance_floor_epsilon : float, optional
+            The fractional scaling constant utilized to establish the minimum 
+            allowable numerical variance. Default is 1e-5.
         """
         if not (frequencies.shape == data.shape == noise_variance.shape):
             raise ValueError("Dimensionality mismatch among independent variables, observational data, and noise arrays.")
@@ -169,17 +171,23 @@ class DiagonalGaussianLikelihood(AbstractLikelihood):
 
         self._frequencies = frequencies
         self._data = data
-        self._inv_variance = 1.0 / noise_variance
         self._forward_model = forward_model
+
+        # Execute Variance Regularization to prevent Inverse-Variance Explosion
+        median_variance = np.median(noise_variance)
+        absolute_variance_floor = median_variance * variance_floor_epsilon
+        
+        effective_variance = np.maximum(noise_variance, absolute_variance_floor)
+        self._inv_variance = 1.0 / effective_variance
 
         n_samples = data.size
         self._normalization_constant = -0.5 * (
-            n_samples * np.log(2.0 * np.pi) + np.sum(np.log(noise_variance))
+            n_samples * np.log(2.0 * np.pi) + np.sum(np.log(effective_variance))
         )
 
     def __call__(self, theta: npt.NDArray[np.float64]) -> float:
         """
-        Evaluate the diagonal Gaussian log-likelihood.
+        Evaluate the variance-regularized diagonal Gaussian log-likelihood.
         """
         model_prediction = self._forward_model(self._frequencies, theta)
         residuals = self._data - model_prediction
@@ -194,11 +202,8 @@ class DenseGaussianLikelihood(AbstractLikelihood):
     Log-likelihood formulation assuming correlated Gaussian noise characterized 
     by a dense covariance matrix.
 
-    Theoretical Formulation:
-        \\ln \\mathcal{L}(\\theta) = -\\frac{1}{2} \\left[ 
-            \\mathbf{r}^T \\mathbf{C}^{-1} \\mathbf{r} + \\ln(|2\\pi\\mathbf{C}|) 
-        \\right]
-    where \\mathbf{r} = \\mathbf{D} - \\mathbf{P}(\\mathbf{f}, \\theta).
+    Incorporates Tikhonov (Ridge) regularization to ensure strict positive-definiteness 
+    and avert ill-conditioned Cholesky decompositions during inversion.
     """
 
     def __init__(
@@ -206,29 +211,11 @@ class DenseGaussianLikelihood(AbstractLikelihood):
         frequencies: npt.NDArray[np.float64],
         data: npt.NDArray[np.float64],
         covariance_matrix: npt.NDArray[np.float64],
-        forward_model: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        forward_model: Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        variance_floor_epsilon: float = 1e-5
     ) -> None:
         """
-        Initialize the likelihood and precompute matrix inversions utilizing 
-        Cholesky decomposition for numerical stability.
-
-        Parameters
-        ----------
-        frequencies : npt.NDArray[np.float64]
-            The independent variable array.
-        data : npt.NDArray[np.float64]
-            The observational data array.
-        covariance_matrix : npt.NDArray[np.float64]
-            The symmetric, positive-definite noise covariance matrix (\\mathbf{C}).
-        forward_model : Callable
-            The deterministic mapping function.
-
-        Raises
-        ------
-        ValueError
-            If matrix dimensions are incompatible.
-        np.linalg.LinAlgError
-            If the covariance matrix is not positive-definite.
+        Initialize the stabilized dense likelihood utilizing Cholesky decomposition.
         """
         n_samples = data.size
         if covariance_matrix.shape != (n_samples, n_samples):
@@ -240,15 +227,22 @@ class DenseGaussianLikelihood(AbstractLikelihood):
         self._data = data
         self._forward_model = forward_model
 
-        # Extract Cholesky decomposition: C = L L^T
-        chol_L = np.linalg.cholesky(covariance_matrix)
+        # Execute Tikhonov Regularization
+        median_diag = np.median(np.diag(covariance_matrix))
+        regularization_matrix = np.eye(n_samples) * (median_diag * variance_floor_epsilon)
+        effective_covariance = covariance_matrix + regularization_matrix
+
+        try:
+            chol_L = np.linalg.cholesky(effective_covariance)
+        except np.linalg.LinAlgError as e:
+            raise np.linalg.LinAlgError(f"Effective covariance matrix remains non-positive definite after regularization: {e}")
         
-        # Precompute the inverse covariance matrix (Precision Matrix)
+        # Precompute the precision matrix (Inverse Covariance)
         identity = np.eye(n_samples)
         chol_inv = np.linalg.solve(chol_L, identity)
         self._inv_covariance = np.dot(chol_inv.T, chol_inv)
 
-        # Precompute the log determinant: ln(|C|) = 2 * sum(ln(diag(L)))
+        # Precompute log-determinant
         log_det_C = 2.0 * np.sum(np.log(np.diag(chol_L)))
         self._normalization_constant = -0.5 * (
             n_samples * np.log(2.0 * np.pi) + log_det_C
@@ -256,12 +250,11 @@ class DenseGaussianLikelihood(AbstractLikelihood):
 
     def __call__(self, theta: npt.NDArray[np.float64]) -> float:
         """
-        Evaluate the dense multivariate Gaussian log-likelihood.
+        Evaluate the regularized dense multivariate Gaussian log-likelihood.
         """
         model_prediction = self._forward_model(self._frequencies, theta)
         residuals = self._data - model_prediction
         
-        # Evaluates r^T C^{-1} r
         chi_squared = np.dot(residuals, np.dot(self._inv_covariance, residuals))
         
         return float(self._normalization_constant - 0.5 * chi_squared)
